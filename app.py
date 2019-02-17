@@ -2,6 +2,7 @@ from os import listdir, makedirs, path
 from io import BytesIO
 from tensorflow import logging
 from keras.applications.vgg16 import VGG16
+from keras.applications.nasnet import NASNetLarge
 from keras.applications.vgg16 import preprocess_input, decode_predictions
 from keras.preprocessing import image as kimage
 from PIL import Image as pimage
@@ -60,9 +61,9 @@ def read_links(src):
     return links
 
 
-airplane_links = read_links('./dataset/url/airplane/url.txt')
-download_imgs(airplane_links, './dataset/img/airplane/')
-exit()
+#airplane_links = read_links('./dataset/url/airplane/url.txt')
+#download_imgs(airplane_links, './dataset/img/airplane/')
+#exit()
 
 # silence tensorflow's useless info logging
 logging.set_verbosity(logging.ERROR)
@@ -70,26 +71,36 @@ logging.set_verbosity(logging.ERROR)
 # parse arguments (image file's path)
 argparser = argparse.ArgumentParser()
 argparser.add_argument('file')
+argparser.add_argument('--model')
 args = argparser.parse_args()
 
 # get testing image from test_src and VGG16 model from keras
 test_src =  args.file
-test_image = kimage.load_img(test_src, target_size=(224,224))
-base_model = VGG16(include_top=True, weights="imagenet")
+
+target_size = (224, 224)
+base_model = None
+
+if args.model == 'nasnet':
+    target_size=(331, 331)
+    print()
+    base_model = NASNetLarge(include_top=True, weights="imagenet")
+else:
+    base_model = VGG16(include_top=True, weights="imagenet")
+test_image = kimage.load_img(test_src, target_size=target_size )
 
 # convert image to numerical array and reshape dimensions to match vgg input (224, 224, 3)
 x_input = kimage.img_to_array(test_image)
 x_input = np.expand_dims(x_input, axis=0)
 x_input = preprocess_input(x_input)
-pred    = decode_predictions( base_model.predict(x_input), top=3 )[0]
+pred    = decode_predictions(base_model.predict(x_input), top=3)[0]
 
-
-# parallel arrays for simplicity
+# aggregate data from predictions - parallel arrays for simplicity
 classes = []
 datapoints = []
 for cls in pred:
     classes.append( cls[1] )
     datapoints.append( cls[2] )
+
 item_index = np.arange(len(classes))
 
 # show image tested and corresponding machine predictions
@@ -104,5 +115,5 @@ plt.bar(item_index, datapoints, align='center')
 prediction_figure.show()
 
 #pause execution until input is received
-#input()
+input()
 
