@@ -21,6 +21,9 @@ def validate_image(bytes_data):
 def download_imgs(links, save_dir, download_limit=100):
     # throw error if links isnt a list
     assert type(links) is list
+
+    images_pulled = 0
+    images_errored = 0
     
     # iterate over each link, carrying both the link and it's list index
     i=0
@@ -40,13 +43,14 @@ def download_imgs(links, save_dir, download_limit=100):
                 makedirs(save_dir)
             with open(filename, 'wb') as f:
                 f.write(r.content)
-
+            
+            images_pulled += 1
         except (requests.exceptions.RequestException, OSError):
             # log downloads
-            print("GET : {} failed.\n=>\tStatus-code:{}".format(link, r.status_code))
+            images_errored += 1
             pass
     
-    return
+    return (images_pulled, images_errored)
 
 
 def get_training_classes(classfile='./dataset/classes.config'):
@@ -115,10 +119,12 @@ def main():
     # find class names to train on and attempt to download images for them
     training_classes = get_training_classes(args.classfile)
     for cls in training_classes:
+        print("Pulling images for class: {}".format(cls))
         path = './dataset/url/{}/url.txt'.format(cls)
         dest_path = './dataset/img/{}/'.format(cls)
         cls_links = read_links(path)
-        download_imgs(cls_links, dest_path)
+        (imgs_pulled, imgs_failed) = download_imgs(cls_links, dest_path)
+        print("\t{} images pulled: {}, images errored: {}".format(cls, imgs_pulled, imgs_failed))
         
 
     # get testing image from test_src and VGG16 model from keras
