@@ -27,11 +27,10 @@ def download_imgs(links, save_dir, download_limit=100):
     for link, i in zip(links, range(len(links))):
         if i > download_limit: break
         
-        # log downloads
-        print("GET : {} ...".format(link), end="")
         try:
             # make a GET request and dont follow redirects - timeout after 3 secs
             r = requests.get(link, allow_redirects=False, timeout=3)
+            r.raise_for_status()
 
             # make sure the response is an image, not HTML
             validate_image(r.content)
@@ -41,19 +40,21 @@ def download_imgs(links, save_dir, download_limit=100):
                 makedirs(save_dir)
             with open(filename, 'wb') as f:
                 f.write(r.content)
-            print('complete.\n=>\tSaved as: {}'.format(filename))
 
-        except (requests.exceptions.ConnectionError, requests.exceptions.ReadTimeout, OSError):
-            print("failed.\n=>\tStatus-code:{}".format(r.status_code))
+        except (requests.exceptions.RequestException, OSError):
+            # log downloads
+            print("GET : {} failed.\n=>\tStatus-code:{}".format(link, r.status_code))
             pass
     
     return
 
 
-def get_training_classes():
-    with open('./dataset/sdfsdf') as fd:
-        for line in fd:
-            print(line)
+def get_training_classes(classfile='./dataset/classes.config'):
+    classes = []
+    with open(classfile) as fd:
+        classes = [line.rstrip('\n') for line in fd]
+                 
+    return classes
 
 
 def read_links(src):
@@ -102,28 +103,35 @@ def display_predictions(pred, image=None, pause_after_show=True ):
 #download_imgs(airplane_links, './dataset/img/airplane/')
 
 def main():
-    get_training_classes()
-
     # silence tensorflow's useless info logging
     logging.set_verbosity(logging.ERROR)
 
     # parse arguments (image file's path)
     argparser = argparse.ArgumentParser()
-    argparser.add_argument('file')
+    argparser.add_argument('classfile')
     argparser.add_argument('--model')
     args = argparser.parse_args()
+
+    # find class names to train on and attempt to download images for them
+    training_classes = get_training_classes(args.classfile)
+    for cls in training_classes:
+        path = './dataset/url/{}/url.txt'.format(cls)
+        dest_path = './dataset/img/{}/'.format(cls)
+        cls_links = read_links(path)
+        download_imgs(cls_links, dest_path)
+        
 
     # get testing image from test_src and VGG16 model from keras
     target_size = (224, 224)
     base_model = VGG16(include_top=True, weights="imagenet")
 
-    test_src   = args.file
-    test_image = kimage.load_img(test_src, target_size=target_size)
-    x_input = process_input(test_image)
+    #test_src   = args.file
+    #test_image = kimage.load_img(test_src, target_size=target_size)
+    #x_input = process_input(test_image)
 
-    pred = decode_predictions(base_model.predict(x_input), top=3)[0]
+    #pred = decode_predictions(base_model.predict(x_input), top=3)[0]
 
-    display_predictions(pred, test_image)
+    #display_predictions(pred, test_image)
     return
 
 main()
