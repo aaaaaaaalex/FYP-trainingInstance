@@ -50,6 +50,12 @@ def download_imgs(links, save_dir, download_limit=100):
     return
 
 
+def get_training_classes():
+    with open('./dataset/sdfsdf') as fd:
+        for line in fd:
+            print(line)
+
+
 def read_links(src):
     links = []
     with open(src, 'r') as srcfile:
@@ -68,7 +74,6 @@ def process_input(test_image):
 
 
 def display_predictions(pred, image=None, pause_after_show=True ):
-
     # aggregate data from predictions - parallel arrays for simplicity
     classes = []
     datapoints = []
@@ -97,6 +102,8 @@ def display_predictions(pred, image=None, pause_after_show=True ):
 #download_imgs(airplane_links, './dataset/img/airplane/')
 
 def main():
+    get_training_classes()
+
     # silence tensorflow's useless info logging
     logging.set_verbosity(logging.ERROR)
 
