@@ -57,7 +57,7 @@ def get_training_classes(classfile='./dataset/classes.config'):
     classes = []
     with open(classfile) as fd:
         classes = [line.rstrip('\n') for line in fd]
-                 
+         
     return classes
 
 
@@ -119,6 +119,8 @@ def main():
     # find class names to train on and attempt to download images for them
     training_classes = get_training_classes(args.classfile)
     for cls in training_classes:
+        if cls === '':
+            pass
         print("Pulling images for class: {}".format(cls))
         path = './dataset/url/{}/url.txt'.format(cls)
         dest_path = './dataset/img/{}/'.format(cls)
