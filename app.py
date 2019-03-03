@@ -9,7 +9,7 @@ from matplotlib import pyplot as plt
 import requests
 import numpy as np
 import argparse
-
+import pandas as pd
 
 # attempts to validate if a collection of bytes represents an image by parsing them with PIL.Image
 # throws an exception if the data cannot be parsed
@@ -22,14 +22,12 @@ def download_imgs(links, save_dir, download_limit=100):
     # throw error if links isnt a list
     assert type(links) is list
 
-    images_pulled = 0
-    images_errored = 0
+    images_pulled = []
     
     # iterate over each link, carrying both the link and it's list index
     i=0
     for link, i in zip(links, range(len(links))):
-        if i > download_limit: break
-        
+        if i > download_limit: break 
         try:
             # make a GET request and dont follow redirects - timeout after 3 secs
             r = requests.get(link, allow_redirects=False, timeout=3)
@@ -44,13 +42,11 @@ def download_imgs(links, save_dir, download_limit=100):
             with open(filename, 'wb') as f:
                 f.write(r.content)
             
-            images_pulled += 1
+            images_pulled.append(filename)
         except (requests.exceptions.RequestException, OSError):
-            # log downloads
-            images_errored += 1
             pass
     
-    return (images_pulled, images_errored)
+    return images_pulled
 
 
 def get_training_classes(classfile='./dataset/classes.config'):
@@ -103,6 +99,32 @@ def display_predictions(pred, image=None, pause_after_show=True ):
         input()
  
 
+# for every classname in the passed file path, pull image links
+# and store them in the filesystem, return a table of labels for each file
+def pull_classes(class_config_directory):
+    dataset = {'id': [], 'label': []}
+
+    # find class names to train on and attempt to download images for them
+    training_classes = get_training_classes(class_config_directory)
+    for cls in training_classes:
+        if cls == '':
+            continue
+        print("Pulling images for class: {}".format(cls))
+        path = './dataset/url/{}/url.txt'.format(cls)
+        dest_path = './dataset/img/{}/'.format(cls)
+        cls_links = read_links(path)
+        imgs_pulled = download_imgs(cls_links, dest_path)
+        for filename in imgs_pulled:
+            dataset['id'].append(filename)
+            dataset['label'].append(cls)
+        print("\t{} images pulled: {}".format(cls, len(imgs_pulled)))
+
+    # construct a table containing filenames and their corresponding classes
+    df = pd.DataFrame(data=dataset)
+    return df
+     
+
+
 #airplane_links = read_links('./dataset/url/airplane/url.txt')
 #download_imgs(airplane_links, './dataset/img/airplane/')
 
@@ -113,23 +135,15 @@ def main():
     # parse arguments (image file's path)
     argparser = argparse.ArgumentParser()
     argparser.add_argument('classfile')
-    argparser.add_argument('--model')
-    args = argparser.parse_args()
+    args = argparser.parse_args()    
 
-    # find class names to train on and attempt to download images for them
-    training_classes = get_training_classes(args.classfile)
-    for cls in training_classes:
-        if cls === '':
-            pass
-        print("Pulling images for class: {}".format(cls))
-        path = './dataset/url/{}/url.txt'.format(cls)
-        dest_path = './dataset/img/{}/'.format(cls)
-        cls_links = read_links(path)
-        (imgs_pulled, imgs_failed) = download_imgs(cls_links, dest_path)
-        print("\t{} images pulled: {}, images errored: {}".format(cls, imgs_pulled, imgs_failed))
-        
 
-    # get testing image from test_src and VGG16 model from keras
+    # pull images and construct a table of image/label pairs
+    dataset_frame = pull_classes(args.classfile)
+    print(dataset_frame)
+
+
+    # get VGG16 model from keras
     target_size = (224, 224)
     base_model = VGG16(include_top=True, weights="imagenet")
 
