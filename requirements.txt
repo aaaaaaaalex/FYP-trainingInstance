@@ -1,7 +1,6 @@
-tensorflow==1.12.0
-requests==2.21.0
-flask==1.0.2
-keras==2.2.4
-matplotlib==3.0.2
-numpy==1.16.1
-pandas==0.24.1
+requests
+flask
+keras
+matplotlib
+numpy
+pandas
