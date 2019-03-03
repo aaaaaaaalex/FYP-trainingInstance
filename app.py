@@ -1,8 +1,13 @@
 from os import listdir, makedirs, path
 from io import BytesIO
-#from tensorflow import logging
+
 from keras.applications.vgg16 import VGG16, preprocess_input, decode_predictions
 from keras.preprocessing import image as kimage
+from keras.models import Sequential
+from keras.layers import Dense
+from keras.optimizers import SGD
+
+from tensorflow import logging
 from PIL import Image as pimage
 from matplotlib import pyplot as plt
 
@@ -21,7 +26,6 @@ def validate_image(bytes_data):
 def download_imgs(links, save_dir, download_limit=100):
     # throw error if links isnt a list
     assert type(links) is list
-
     images_pulled = []
     
     # iterate over each link, carrying both the link and it's list index
@@ -35,13 +39,11 @@ def download_imgs(links, save_dir, download_limit=100):
 
             # make sure the response is an image, not HTML
             validate_image(r.content)
-
-            filename = "{}img-{}".format(save_dir, i)
+            filename = "{}img-{}.jpg".format(save_dir, i)
             if not path.exists(save_dir):
                 makedirs(save_dir)
             with open(filename, 'wb') as f:
                 f.write(r.content)
-            
             images_pulled.append(filename)
         except (requests.exceptions.RequestException, OSError):
             pass
@@ -52,8 +54,7 @@ def download_imgs(links, save_dir, download_limit=100):
 def get_training_classes(classfile='./dataset/classes.config'):
     classes = []
     with open(classfile) as fd:
-        classes = [line.rstrip('\n') for line in fd]
-         
+        classes = [line.rstrip('\n') for line in fd]         
     return classes
 
 
@@ -125,31 +126,83 @@ def pull_classes(class_config_directory):
      
 
 
+# load a pre-existing, trained model, and add a new, blank classifier ontop
+def newClassifier(target_size=(224,224), n_classes=14):
+    base_model = VGG16(weights="imagenet")
+    new_model = Sequential()
+    
+    base_model.layers.pop()
+    #unwrap base_model layers and add them to a new Sequential model
+    for layer in base_model.layers:
+        layer.trainable = False
+        new_model.add(layer)
+
+    new_model.add( Dense(n_classes, activation="softmax") )
+    #print("--------Newly-constructed model-------:")
+    return new_model
+
+
 #airplane_links = read_links('./dataset/url/airplane/url.txt')
 #download_imgs(airplane_links, './dataset/img/airplane/')
 
 def main():
     # silence tensorflow's useless info logging
-    # logging.set_verbosity(logging.ERROR)
+    logging.set_verbosity(logging.ERROR)
 
     # parse arguments (image file's path)
     argparser = argparse.ArgumentParser()
     argparser.add_argument('classfile')
-    args = argparser.parse_args()    
+    argparser.add_argument('--skip-download', action='store_true')
+    args = argparser.parse_args()
+
+    dataset_frame = None
+    if not (args.skip_download):
+        # pull images and construct a table of image/label pairs
+        dataset_frame = pull_classes(args.classfile)
+        dataset_frame.to_csv('./dataset_cache')
+    else:
+        dataset_frame = pd.read_csv('./dataset_cache', index_col=0)
 
 
-    # pull images and construct a table of image/label pairs
-    dataset_frame = pull_classes(args.classfile)
-    print(dataset_frame)
+    dataset_frame['id'] = dataset_frame['id'].apply(lambda val:
+        path.abspath(val)
+    )
 
+    # section off images for training and validation
+    img_generator = kimage.ImageDataGenerator(validation_split=.25)
+    data_flow = img_generator.flow_from_dataframe(
+        directory=None,
+        dataframe=dataset_frame,
+        x_col="id",
+        y_col="label",
+        class_mode="categorical",
+        target_size=(224, 224),
+        subset="training"
+    )
+    validation_data_flow = img_generator.flow_from_dataframe(
+        directory=None,
+        dataframe=dataset_frame,
+        x_col="id",
+        y_col="label",
+        class_mode="categorical",
+        target_size=(224, 224),
+        subset="validation"
+    )
 
-    # get VGG16 model from keras
-    target_size = (224, 224)
-    base_model = VGG16(include_top=True, weights="imagenet")
+    # construct new classifier model from a pre-trained model
+    new_model = newClassifier()
+    new_model.summary()
+    new_model.compile(optimizer=SGD(lr=.001, momentum=.9), loss="categorical_crossentropy", metrics=['accuracy'])
+    
+    new_model.fit_generator(
+        data_flow,
+        steps_per_epoch=10,
+        epochs=5,
+        validation_data=validation_data_flow,
+        validation_steps=3
+    )
 
-    #test_src   = args.file
-    #test_image = kimage.load_img(test_src, target_size=target_size)
-    #x_input = process_input(test_image)
+    
 
     #pred = decode_predictions(base_model.predict(x_input), top=3)[0]
 
