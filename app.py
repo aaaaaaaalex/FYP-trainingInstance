@@ -1,6 +1,6 @@
 from os import listdir, makedirs, path
 from io import BytesIO
-from tensorflow import logging
+#from tensorflow import logging
 from keras.applications.vgg16 import VGG16, preprocess_input, decode_predictions
 from keras.preprocessing import image as kimage
 from PIL import Image as pimage
@@ -130,7 +130,7 @@ def pull_classes(class_config_directory):
 
 def main():
     # silence tensorflow's useless info logging
-    logging.set_verbosity(logging.ERROR)
+    # logging.set_verbosity(logging.ERROR)
 
     # parse arguments (image file's path)
     argparser = argparse.ArgumentParser()
