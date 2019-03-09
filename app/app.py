@@ -1,7 +1,7 @@
 from os import listdir, makedirs, path
 from io import BytesIO
 
-from keras.applications.vgg16 import VGG16, preprocess_input, decode_predictions
+from keras.applications.densenet import DenseNet201, preprocess_input, decode_predictions
 from keras.preprocessing import image as kimage
 from keras.models import Sequential
 from keras.layers import Dense
@@ -11,9 +11,9 @@ from tensorflow import logging
 from PIL import Image as pimage
 from matplotlib import pyplot as plt
 
+import argparse
 import requests
 import numpy as np
-import argparse
 import pandas as pd
 
 # attempts to validate if a collection of bytes represents an image by parsing them with PIL.Image
@@ -68,7 +68,7 @@ def read_links(src):
 
 
 def process_input(test_image): 
-    # convert image to numerical array and reshape dimensions to match vgg input (224, 224, 3)
+    # convert image to numerical array and reshape dimensions to match neural net input
     x_input = kimage.img_to_array(test_image)
     x_input = np.expand_dims(x_input, axis=0)
     x_input = preprocess_input(x_input)
@@ -128,7 +128,7 @@ def pull_classes(class_config_directory):
 
 # load a pre-existing, trained model, and add a new, blank classifier ontop
 def newClassifier(target_size=(224,224), n_classes=14):
-    base_model = VGG16(weights="imagenet")
+    base_model = DenseNet201(weights="imagenet")
     new_model = Sequential()
     
     base_model.layers.pop()
@@ -138,12 +138,9 @@ def newClassifier(target_size=(224,224), n_classes=14):
         new_model.add(layer)
 
     new_model.add( Dense(n_classes, activation="softmax") )
-    #print("--------Newly-constructed model-------:")
     return new_model
 
 
-#airplane_links = read_links('./dataset/url/airplane/url.txt')
-#download_imgs(airplane_links, './dataset/img/airplane/')
 
 def main():
     # silence tensorflow's useless info logging
@@ -159,9 +156,9 @@ def main():
     if not (args.skip_download):
         # pull images and construct a table of image/label pairs
         dataset_frame = pull_classes(args.classfile)
-        dataset_frame.to_csv('./dataset_cache')
+        dataset_frame.to_csv('./dataset/dataset_cache')
     else:
-        dataset_frame = pd.read_csv('./dataset_cache', index_col=0)
+        dataset_frame = pd.read_csv('./dataset/dataset_cache', index_col=0)
 
 
     dataset_frame['id'] = dataset_frame['id'].apply(lambda val:
@@ -205,7 +202,6 @@ def main():
     
 
     #pred = decode_predictions(base_model.predict(x_input), top=3)[0]
-
     #display_predictions(pred, test_image)
     return
 
