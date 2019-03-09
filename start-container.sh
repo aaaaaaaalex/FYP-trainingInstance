@@ -1,0 +1,1 @@
+sudo docker run --runtime=nvidia -v "$(pwd)/app:/app" -it tensorflow/tensorflow:latest-gpu-py3
