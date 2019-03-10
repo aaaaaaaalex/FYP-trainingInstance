@@ -1,11 +1,43 @@
+# ----------------------------------------------------------------------------------------------|
+# -------------------------------------------- DISCLAIMER FOR THE USE OF DENSENET WEIGHTS ------|
+# ----------------------------------------------------------------------------------------------|
+# Copyright (c) 2016, Zhuang Liu.                                                               |
+# All rights reserved.                                                                          |
+#                                                                                               |
+# Redistribution and use in source and binary forms, with or without modification,              |
+# are permitted provided that the following conditions are met:                                 |
+#                                                                                               |
+#  * Redistributions of source code must retain the above copyright notice, this                |
+#    list of conditions and the following disclaimer.                                           |
+#                                                                                               |
+#  * Redistributions in binary form must reproduce the above copyright notice,                  |
+#    this list of conditions and the following disclaimer in the documentation                  |
+#    and/or other materials provided with the distribution.                                     |
+#                                                                                               |
+#  * Neither the name DenseNet nor the names of its contributors may be used to                 |
+#    endorse or promote products derived from this software without specific                    |
+#    prior written permission.                                                                  |
+#                                                                                               |
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND               |
+# ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED                 |
+# WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE                        |
+# DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR              |
+# ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES                |
+# (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;                  |
+# LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON                |
+# ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT                       |
+# (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS                 |
+# SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.                                  |
+# ----------------------------------------------------------------------------------------------|
+
 from os import listdir, makedirs, path
 from io import BytesIO
 
-from keras.applications.densenet import DenseNet201, preprocess_input, decode_predictions
+from keras.applications.densenet import DenseNet201, preprocess_input
 from keras.preprocessing import image as kimage
-from keras.models import Sequential
-from keras.layers import Dense
 from keras.optimizers import SGD
+from keras.models import Model
+from keras.layers import Dense, GlobalAveragePooling2D
 
 from tensorflow import logging
 from PIL import Image as pimage
@@ -20,7 +52,7 @@ import pandas as pd
 # throws an exception if the data cannot be parsed
 def validate_image(bytes_data):
     buf = BytesIO(bytes_data)
-    img = pimage.open(buf)
+    pimage.open(buf)
 
 
 def download_imgs(links, save_dir, download_limit=100):
@@ -127,18 +159,18 @@ def pull_classes(class_config_directory):
 
 
 # load a pre-existing, trained model, and add a new, blank classifier ontop
-def newClassifier(target_size=(224,224), n_classes=14):
-    base_model = DenseNet201(weights="imagenet")
-    new_model = Sequential()
-    
-    base_model.layers.pop()
-    #unwrap base_model layers and add them to a new Sequential model
+def newClassifier(n_classes=14):
+    base_model = DenseNet201(weights="imagenet", include_top=False)    
+
+    #lock down the pre-trained layers for training
     for layer in base_model.layers:
         layer.trainable = False
-        new_model.add(layer)
 
-    new_model.add( Dense(n_classes, activation="softmax") )
-    return new_model
+    x = base_model.output
+    x = GlobalAveragePooling2D(name="avg_pool")(x)
+    output = Dense(n_classes, activation="softmax", name="classify")(x)
+
+    return Model(inputs=base_model.input, outputs=output)
 
 
 
@@ -160,13 +192,26 @@ def main():
     else:
         dataset_frame = pd.read_csv('./dataset/dataset_cache', index_col=0)
 
+    classes = dataset_frame['label'].unique()
 
     dataset_frame['id'] = dataset_frame['id'].apply(lambda val:
         path.abspath(val)
     )
 
     # section off images for training and validation
-    img_generator = kimage.ImageDataGenerator(validation_split=.25)
+    # training params:
+    validation_split_ratio   = .3
+    total_training_samples   = int(len(dataset_frame) * (1.0-validation_split_ratio))
+    total_validation_samples = int(len(dataset_frame) * validation_split_ratio)
+
+    epochs = 5
+    training_batch_size = 80
+    validation_batch_size = 10
+
+    steps_per_epoch = int(total_training_samples / training_batch_size)
+    validation_steps = int(total_validation_samples / validation_batch_size)
+
+    img_generator = kimage.ImageDataGenerator(validation_split=validation_split_ratio)
     data_flow = img_generator.flow_from_dataframe(
         directory=None,
         dataframe=dataset_frame,
@@ -174,7 +219,8 @@ def main():
         y_col="label",
         class_mode="categorical",
         target_size=(224, 224),
-        subset="training"
+        subset="training",
+        batch_size=training_batch_size
     )
     validation_data_flow = img_generator.flow_from_dataframe(
         directory=None,
@@ -183,20 +229,22 @@ def main():
         y_col="label",
         class_mode="categorical",
         target_size=(224, 224),
-        subset="validation"
+        subset="validation",
+        batch_size=validation_batch_size
     )
 
     # construct new classifier model from a pre-trained model
-    new_model = newClassifier()
-    new_model.summary()
-    new_model.compile(optimizer=SGD(lr=.001, momentum=.9), loss="categorical_crossentropy", metrics=['accuracy'])
+    new_model = newClassifier(n_classes=len(classes))
+    new_model.compile(optimizer=SGD(lr=0.0001, momentum=0.9, decay=0.0), loss="categorical_crossentropy", metrics=['accuracy'])
     
+
+    print("number of training samples: {},\nnumber of validation samples: {},\nepochs: {},\nsteps_per_epoch: {},\nvalidation_steps: {}".format(total_training_samples, total_validation_samples, epochs, steps_per_epoch, validation_steps))
     new_model.fit_generator(
         data_flow,
-        steps_per_epoch=10,
-        epochs=5,
+        steps_per_epoch=steps_per_epoch,
+        epochs=epochs,
         validation_data=validation_data_flow,
-        validation_steps=3
+        validation_steps=validation_steps
     )
 
     
