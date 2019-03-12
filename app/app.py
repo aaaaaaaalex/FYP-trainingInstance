@@ -55,7 +55,7 @@ def validate_image(bytes_data):
     pimage.open(buf)
 
 
-def download_imgs(links, save_dir, download_limit=100):
+def download_imgs(links, save_dir, download_limit=1000):
     # throw error if links isnt a list
     assert type(links) is list
     images_pulled = []
@@ -63,7 +63,6 @@ def download_imgs(links, save_dir, download_limit=100):
     # iterate over each link, carrying both the link and it's list index
     i=0
     for link, i in zip(links, range(len(links))):
-        if i > download_limit: break 
         try:
             # make a GET request and dont follow redirects - timeout after 3 secs
             r = requests.get(link, allow_redirects=False, timeout=3)
@@ -134,7 +133,7 @@ def display_predictions(pred, image=None, pause_after_show=True ):
 
 # for every classname in the passed file path, pull image links
 # and store them in the filesystem, return a table of labels for each file
-def pull_classes(class_config_directory):
+def pull_dataset(class_config_directory):
     dataset = {'id': [], 'label': []}
 
     # find class names to train on and attempt to download images for them
@@ -152,8 +151,37 @@ def pull_classes(class_config_directory):
             dataset['label'].append(cls)
         print("\t{} images pulled: {}".format(cls, len(imgs_pulled)))
 
+
     # construct a table containing filenames and their corresponding classes
     df = pd.DataFrame(data=dataset)
+
+    # find the class with the smallest number of images
+    print(df)
+    lowest_images = -1
+    lowest_classname = ""
+    for classname in df['label'].unique():
+        class_count = len(df[ df['label'] == classname])
+        if (lowest_images < 0 or class_count < lowest_images): 
+            lowest_images = class_count
+            lowest_classname = classname
+
+    # drop images of other classes to un-skew the dataset
+    all_classes = []
+    print("\nClass '{}' has the least pulled-images. Image count: {}".format(lowest_classname, lowest_images))
+    for classname in df['label'].unique():
+        all_imgs_for_class = df[df['label'] == classname]
+        redundancy = len(all_imgs_for_class) - lowest_images
+        lost_images = redundancy / len(all_imgs_for_class)
+        if redundancy > 0 :
+            all_imgs_for_class = all_imgs_for_class[:-redundancy]
+            all_classes.append(all_imgs_for_class)
+        print("{}: {} redundant images - {}\% lost.".format(classname, redundancy, lost_images*100))
+    
+    df = pd.concat(all_classes)
+    print(df)
+    
+
+
     return df
      
 
@@ -187,7 +215,7 @@ def main():
     dataset_frame = None
     if not (args.skip_download):
         # pull images and construct a table of image/label pairs
-        dataset_frame = pull_classes(args.classfile)
+        dataset_frame = pull_dataset(args.classfile)
         dataset_frame.to_csv('./dataset/dataset_cache')
     else:
         dataset_frame = pd.read_csv('./dataset/dataset_cache', index_col=0)
@@ -205,11 +233,12 @@ def main():
     total_validation_samples = int(len(dataset_frame) * validation_split_ratio)
 
     epochs = 5
-    training_batch_size = 80
-    validation_batch_size = 10
+    training_batch_size = 100
+    validation_batch_size = 100
 
     steps_per_epoch = int(total_training_samples / training_batch_size)
     validation_steps = int(total_validation_samples / validation_batch_size)
+
 
     img_generator = kimage.ImageDataGenerator(validation_split=validation_split_ratio)
     data_flow = img_generator.flow_from_dataframe(
@@ -235,7 +264,7 @@ def main():
 
     # construct new classifier model from a pre-trained model
     new_model = newClassifier(n_classes=len(classes))
-    new_model.compile(optimizer=SGD(lr=0.0001, momentum=0.9, decay=0.0), loss="categorical_crossentropy", metrics=['accuracy'])
+    new_model.compile(optimizer=SGD(lr=0.00001, momentum=0.9, decay=0.00001), loss="categorical_crossentropy", metrics=['accuracy'])
     
 
     print("number of training samples: {},\nnumber of validation samples: {},\nepochs: {},\nsteps_per_epoch: {},\nvalidation_steps: {}".format(total_training_samples, total_validation_samples, epochs, steps_per_epoch, validation_steps))
