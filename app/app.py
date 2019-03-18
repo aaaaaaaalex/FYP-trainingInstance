@@ -35,7 +35,7 @@ from io import BytesIO
 
 from keras.applications.densenet import DenseNet201, preprocess_input
 from keras.preprocessing import image as kimage
-from keras.optimizers import SGD, Adam
+from keras.optimizers import SGD
 from keras.models import Model
 from keras.layers import Dense, GlobalAveragePooling2D, Dropout
 
@@ -45,6 +45,7 @@ from matplotlib import pyplot as plt
 
 import argparse
 import requests
+import h5py
 import numpy as np
 import pandas as pd
 
@@ -314,6 +315,8 @@ def main():
         validation_data=flow_with_normalisation(validation_data_flow),
         validation_steps=validation_steps
     )
+
+
 
     #pred = decode_predictions(base_model.predict(x_input), top=3)[0]
     #display_predictions(pred, test_image)
