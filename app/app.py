@@ -30,13 +30,14 @@
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.                                  |
 # ----------------------------------------------------------------------------------------------|
 
-from os import listdir, makedirs, path
+from os import listdir, makedirs, path, environ
 from io import BytesIO
 
 from keras.applications.densenet import DenseNet201, preprocess_input
 from keras.preprocessing import image as kimage
+from keras.callbacks import EarlyStopping
 from keras.optimizers import SGD
-from keras.models import Model
+from keras.models import Model, model_from_json
 from keras.layers import Dense, GlobalAveragePooling2D, Dropout
 
 from tensorflow import logging
@@ -46,6 +47,7 @@ from matplotlib import pyplot as plt
 import argparse
 import requests
 import h5py
+import time
 import numpy as np
 import pandas as pd
 
@@ -82,7 +84,7 @@ import pandas as pd
 #         input()
 
 
-
+OUTPUT_FILENAME = "./out/"
 
 # attempts to validate if a collection of bytes represents an image by parsing them with PIL.Image
 # throws an exception if the data cannot be parsed
@@ -221,24 +223,14 @@ def flow_with_normalisation(data_flow):
         yield norm_np_xs, ys
 
 
-def main():
-    # silence tensorflow's useless info logging
-    logging.set_verbosity(logging.ERROR)
-
-    # parse arguments (image file's path)
-    argparser = argparse.ArgumentParser()
-    argparser.add_argument('classfile')
-    argparser.add_argument('--min-images-per-class')
-    argparser.add_argument('--skip-download', action='store_true')
-    args = argparser.parse_args()
-
-    dataset_frame = None
-    if not (args.skip_download):
-        # pull images and construct a table of image/label pairs
-        dataset_frame = pull_dataset(args.classfile, args.min_images_per_class)
-        dataset_frame.to_csv('./dataset/dataset_cache')
-    else:
-        dataset_frame = pd.read_csv('./dataset/dataset_cache', index_col=0)
+def train(
+        dataset_frame,
+        checkpoint=None,
+        epochs=15,
+        training_batch_size=256,
+        validation_batch_size=256,
+        validation_split_ratio=0.2,
+        lr=0.01, decay=0.0009):
 
     # Give absolute paths for images, then shuffle the dataset
     dataset_frame['id'] = dataset_frame['id'].apply(lambda val:
@@ -246,20 +238,16 @@ def main():
     )
     dataset_frame = dataset_frame.sample(frac=1).reset_index(drop=True)
 
-
-
     # section off images for training and validation
     # training params:
-    validation_split_ratio   = .2
+    validation_split_ratio   = .1
     total_training_samples   = int(len(dataset_frame) * (1.0-validation_split_ratio))
     total_validation_samples = int(len(dataset_frame) * validation_split_ratio)
 
-    epochs = 10
-    training_batch_size = 256
-    validation_batch_size = 256
 
     steps_per_epoch = int(total_training_samples / training_batch_size)
     validation_steps = int(total_validation_samples / validation_batch_size)
+
 
     img_generator = kimage.ImageDataGenerator(
         validation_split=validation_split_ratio,
@@ -298,29 +286,100 @@ def main():
     #     print("X----------------------------------------------\n{}\nY----------------------------------------------{}\n\n\n".format(x[0], y))
     #     plt.imshow(x_np/255)
     #     plt.pause(.5)
-    
     # return
 
-    # construct new classifier model from a pre-trained model
+    # construct new classifier model from a pre-trained model (or load a model from a checkpoint directory)
+    print("\nMODEL---------------------")
     classes = dataset_frame['label'].unique()
-    new_model = newClassifier(n_classes=len(classes))
+    new_model = None
+    if (checkpoint):
+        filename = checkpoint+'/arch.json'
+        f = open(filename, 'r')
+        json = f.read()
+        f.close()
+        new_model = model_from_json(json)
 
+        weights_filename = checkpoint+'/weights.h5'
+        new_model.load_weights(weights_filename)
+
+        print("Model loaded from checkpoint file")
+    else:
+        new_model = newClassifier(n_classes=len(classes))
+        print("Model initialized from scratch.")
+    
     new_model.compile(optimizer=SGD(lr=0.01, decay=0.0009), loss="categorical_crossentropy", metrics=['categorical_accuracy'])
 
-    print("number of training samples: {},\nnumber of validation samples: {},\nepochs: {},\nsteps_per_epoch: {},\nvalidation_steps: {}".format(total_training_samples, total_validation_samples, epochs, steps_per_epoch, validation_steps))
-    new_model.fit_generator(
+
+    # training callbacks
+    estopper = EarlyStopping(monitor='val_categorical_accuracy', patience=2)
+
+    print("\nTRAINING---------------------\nepochs: {},\nsteps_per_epoch: {},\nvalidation_steps: {}".format( epochs, steps_per_epoch, validation_steps))
+    history = new_model.fit_generator(
         flow_with_normalisation(data_flow),
         steps_per_epoch=steps_per_epoch,
         epochs=epochs,
         validation_data=flow_with_normalisation(validation_data_flow),
-        validation_steps=validation_steps
+        validation_steps=validation_steps,
+        callbacks=[estopper]
     )
 
+    return (new_model, history)
 
+
+def save_model(model, output_directory="./out/{}{}"):
+    timestamp = int(time.time())
+
+    # check if 'out' dir exists, create it if not
+    if not path.exists(output_directory.format('','')):
+        makedirs(output_directory.format('', ''))
+    
+    # repeat for unique, timestamped checkpoint directory
+    if not path.exists( output_directory.format(timestamp, '') ):
+        makedirs( output_directory.format(timestamp, '') )
+
+    # write model architecture to JSON file
+    with open(output_directory.format( timestamp, '/arch.json'), 'w') as f:
+        f.write(model.to_json())
+    
+    # write weights to .h5 file
+    model.save_weights(output_directory.format( timestamp, '/weights.h5'))
+    print("\nMODEL SAVED TO:{}")
+    return output_directory.format(timestamp, '')
+
+def main():
+    # silence tensorflow's useless info logging
+    logging.set_verbosity(logging.ERROR)
+    environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+
+    # parse arguments (image file's path)
+    argparser = argparse.ArgumentParser()
+    argparser.add_argument('--config')
+    argparser.add_argument('--checkpoint')
+    argparser.add_argument('--min-images-per-class')
+    argparser.add_argument('--skip-download', action='store_true')
+    args = argparser.parse_args()
+
+    print("\nDATASET---------------------")
+    if args.config:
+        # pull images and construct a table of image/label pairs
+        dataset_frame = pull_dataset(args.config, int(args.min_images_per_class))
+        dataset_frame.to_csv('./dataset/dataset_cache')
+    elif args.skip_download:
+        dataset_frame = pd.read_csv('./dataset/dataset_cache', index_col=0)
+    else:
+        print("Invalid args: no config for pulling images was provided, and --skip-download was not declared")
+        return
+
+    # start training
+    if (args.checkpoint):
+        (model, _) = train(dataset_frame, checkpoint=args.checkpoint)
+    else:
+        (model, _) = train(dataset_frame)
+
+    save_model(model)
 
     #pred = decode_predictions(base_model.predict(x_input), top=3)[0]
     #display_predictions(pred, test_image)
     return
 
 main()
-
