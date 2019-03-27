@@ -42,6 +42,7 @@ from keras.layers import Dense, GlobalAveragePooling2D, Dropout
 
 from PIL import Image as pimage, ImageFile
 from matplotlib import pyplot as plt
+from tensorflow import logging as tflogging
 
 import argparse
 import requests
@@ -49,39 +50,6 @@ import h5py
 import time
 import numpy as np
 import pandas as pd
-
-# def process_input(test_image): 
-#     # convert image to numerical array and reshape dimensions to match neural net input
-#     x_input = kimage.img_to_array(test_image)
-#     x_input = np.expand_dims(x_input, axis=0)
-#     x_input = preprocess_input(x_input)
-#     return x_input
-
-
-# def display_predictions(pred, image=None, pause_after_show=True ):
-#     # aggregate data from predictions - parallel arrays for simplicity
-#     classes = []
-#     datapoints = []
-#     for cls in pred:
-#         classes.append( cls[1] )
-#         datapoints.append( cls[2] )
-#     item_index = np.arange(len(classes))
-    
-#     if (image):
-#         # show image tested and corresponding machine predictions
-#         image_figure = plt.figure(1)
-#         plt.imshow(image)
-#         image_figure.show()
-
-#     prediction_figure = plt.figure(2)
-#     plt.xticks( item_index , classes)
-#     plt.ylabel('certainty')
-#     plt.bar(item_index, datapoints, align='center')
-#     prediction_figure.show()
-
-#     if pause_after_show is True:
-#         input()
-
 
 class TrainingInstance():
     def __init__(self):
@@ -223,14 +191,13 @@ class TrainingInstance():
 
         return model
 
-
     def train(
             self,
             dataset_frame,
             checkpoint=None,
             epochs=15,
-            training_batch_size=256,
-            validation_batch_size=256,
+            training_batch_size=200,
+            validation_batch_size=200,
             validation_split_ratio=0.2,
             lr=0.01, decay=0.0009):
 
@@ -317,7 +284,7 @@ class TrainingInstance():
             TrainingInstance.flow_with_normalisation(data_flow),
             steps_per_epoch=steps_per_epoch,
             epochs=epochs,
-            validation_data=flow_with_normalisation(validation_data_flow),
+            validation_data=TrainingInstance.flow_with_normalisation(validation_data_flow),
             validation_steps=validation_steps,
             callbacks=[estopper]
         )
@@ -343,13 +310,16 @@ class TrainingInstance():
         
         # write weights to .h5 file
         model.save_weights(output_directory.format( timestamp, '/weights.h5'))
-        print("\nMODEL SAVED TO:{}")
-        return output_directory.format(timestamp, '')
+
+        save_dir = output_directory.format(timestamp, '')
+        print("\nMODEL SAVED TO:{}".format(save_dir))
+        return save_dir
 
 
 def main():
     # silence tensorflow's useless info logging
     environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+    tflogging.set_verbosity(tflogging.ERROR)
 
     # parse arguments (image file's path)
     argparser = argparse.ArgumentParser()
@@ -374,11 +344,11 @@ def main():
 
     # start training
     if (args.checkpoint_dir):
-        (model, _) = instance.train(dataset_frame, checkpoint=args.checkpoint_dir)
+        instance.train(dataset_frame, checkpoint=args.checkpoint_dir)
     else:
-        (model, _) = instance.train(dataset_frame)
+        instance.train(dataset_frame)
 
-    instance.save_model(model)
+    instance.save_model()
 
     #pred = decode_predictions(base_model.predict(x_input), top=3)[0]
     #display_predictions(pred, test_image)
