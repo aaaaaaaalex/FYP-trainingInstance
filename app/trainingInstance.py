@@ -206,8 +206,6 @@ class TrainingInstance():
     def __make_classifier__(self):
 
         # construct new classifier model from a pre-trained model (or load a model from a checkpoint directory)
-        print("\nMODEL---------------------")
-
         if (self.checkpoint_path):
             filename = self.checkpoint_path + '/arch.json'
             f = open(filename, 'r')
@@ -245,7 +243,13 @@ class TrainingInstance():
             self.dataset_frame = pd.read_csv('./dataset/dataset_cache', index_col=0)
         elif self.config_path is not None:
             self.__pull_dataset__()
+
         self.dataset_frame.to_csv('./dataset/dataset_cache')
+        
+        # Give absolute paths for images
+        self.dataset_frame['id'] = self.dataset_frame['id'].apply( lambda val:
+            path.abspath(val)
+        )
 
         if unskew_data:
             self.__unskew_data__()
@@ -263,10 +267,7 @@ class TrainingInstance():
             validation_split_ratio=0.2,
             lr=0.01, decay=0.0009):
 
-        # Give absolute paths for images, then shuffle the dataset
-        self.dataset_frame['id'] = self.dataset_frame['id'].apply(lambda val:
-            path.abspath(val)
-        )
+        # shuffle data
         self.dataset_frame = self.dataset_frame.sample(frac=1).reset_index(drop=True)
 
         # section off images for training and validation
@@ -350,8 +351,6 @@ class TrainingInstance():
         save_dir = output_directory.format(timestamp, '')
         print("\nMODEL SAVED TO:{}".format(save_dir))
         return save_dir
-
-
 
 
 
