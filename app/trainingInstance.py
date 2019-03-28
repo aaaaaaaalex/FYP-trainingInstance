@@ -52,12 +52,27 @@ import numpy as np
 import pandas as pd
 
 class TrainingInstance():
-    def __init__(self):
+    def __init__(self, 
+            config_path = None,
+            checkpoint_path = None,
+            use_dataset_cache   = None,
+            min_images_per_class = None):
+
+        self.config_path = config_path
+        self.checkpoint_path = checkpoint_path
+
+        if use_dataset_cache is None:
+            self.use_dataset_cache = False
+        else: self.use_dataset_cache = use_dataset_cache
+
+        self.min_images_per_class = min_images_per_class
+
         return
+
 
     # wrap the Keras image data gen and manually normalize images
     @staticmethod
-    def flow_with_normalisation(data_flow):
+    def __flow_with_normalisation__(data_flow):
        for xs, ys in data_flow:
             np_xs = np.array(xs)
             norm_np_xs = np_xs / 255
@@ -66,7 +81,8 @@ class TrainingInstance():
 
     # attempts to validate if a collection of bytes represents an image by parsing them with PIL.Image
     # throws an exception if the data cannot be parsed
-    def sanitise_image(self, bytes_data):
+    @staticmethod
+    def __sanitise_image__(bytes_data):
         buf = BytesIO(bytes_data)
         img = pimage.open(buf)
 
@@ -80,7 +96,10 @@ class TrainingInstance():
         # drop all EXIF data as it is all redundant
         return buf_no_exif.getvalue()
 
-    def read_links(self, src):
+
+    #opens a file containing a newline-separated list of URLS, returns all URLS found
+    @staticmethod
+    def __read_links__(src):
         links = []
         with open(src, 'r') as srcfile:
             for line in srcfile:
@@ -88,13 +107,42 @@ class TrainingInstance():
         links = [line.rstrip('\n') for line in links]
         return links
 
-    def get_training_classes(self, classfile='./dataset/classes.config'):
-        classes = []
-        with open(classfile) as fd:
-            classes = [line.rstrip('\n') for line in fd]         
-        return classes
 
-    def download_imgs(self, links, save_dir, download_limit=1000):
+    # ensure that there is the same number of data for every class in a dataframe
+    def __unskew_data__ (self):
+
+        # find the class with the smallest number of images
+        lowest_images = -1
+        lowest_classname = ""
+        for classname in self.dataset_frame['label'].unique():
+            class_count = len(self.dataset_frame[ self.dataset_frame['label'] == classname])
+            if (lowest_images < 0 or class_count < lowest_images): 
+                lowest_images = class_count
+                lowest_classname = classname
+
+        # drop images of other classes to un-skew the dataset
+        all_classes = []
+        print("\nClass '{}' has the least pulled-images. Image count: {}".format(lowest_classname, lowest_images))
+        for classname in self.dataset_frame['label'].unique():
+            all_imgs_for_class = self.dataset_frame[self.dataset_frame['label'] == classname]
+            redundancy = len(all_imgs_for_class) - lowest_images
+            lost_images = redundancy / len(all_imgs_for_class)
+
+            if redundancy > 0 :
+                all_imgs_for_class = all_imgs_for_class[:-redundancy]
+
+            if self.min_images_per_class==None or len(all_imgs_for_class) >= self.min_images_per_class:
+                all_classes.append(all_imgs_for_class)
+
+            #print("{}: {} redundant images - {}% lost.".format(classname, redundancy, lost_images*100))
+        
+        self.dataset_frame = pd.concat(all_classes)
+        return self.dataset_frame
+
+
+    # downloads images at the URLs provided
+    @staticmethod
+    def __download_imgs__(links, save_dir):
         # throw error if links isnt a list
         assert type(links) is list
         images_pulled = []
@@ -108,7 +156,7 @@ class TrainingInstance():
                 r.raise_for_status()
 
                 # make sure the response is an image, not HTML
-                img = self.sanitise_image(r.content)
+                img = TrainingInstance.__sanitise_image__(r.content)
                 filename = "{}img-{}.jpg".format(save_dir, i)
                 if not path.exists(save_dir):
                     makedirs(save_dir)
@@ -120,81 +168,95 @@ class TrainingInstance():
         
         return images_pulled
 
+
     # for every classname in the passed file path, pull image links
     # and store them in the filesystem, return a table of labels for each file
-    def pull_dataset(self, class_config_directory, min_cutoff=None):
+    def __pull_dataset__(self):
         dataset = {'id': [], 'label': []}
 
         # find class names to train on and attempt to download images for them
-        training_classes = self.get_training_classes(class_config_directory)
+        training_classes = []
+        with open(self.config_path) as fd:
+            training_classes = [line.rstrip('\n') for line in fd]         
+
+        # begin pulling images for each class
         for cls in training_classes:
             if cls == '':
                 continue
+            
             print("Pulling images for class: {}".format(cls))
-            path = './dataset/url/{}/url.txt'.format(cls)
+            path      = './dataset/url/{}/url.txt'.format(cls)
             dest_path = './dataset/img/{}/'.format(cls)
-            cls_links = self.read_links(path)
-            imgs_pulled = self.download_imgs(cls_links, dest_path)
+            
+            img_links = TrainingInstance.__read_links__(path)
+            imgs_pulled = TrainingInstance.__download_imgs__(img_links, dest_path)
             for filename in imgs_pulled:
                 dataset['id'].append(filename)
                 dataset['label'].append(cls)
             print("\t{} images pulled: {}".format(cls, len(imgs_pulled)))
 
+            # construct a table containing filenames and their corresponding classes
+            df = pd.DataFrame(data=dataset)
 
-        # construct a table containing filenames and their corresponding classes
-        df = pd.DataFrame(data=dataset)
+            self.dataset_frame = df
+            return self.dataset_frame
 
-        # find the class with the smallest number of images
-        # print(df)
-        lowest_images = -1
-        lowest_classname = ""
-        for classname in df['label'].unique():
-            class_count = len(df[ df['label'] == classname])
-            if (lowest_images < 0 or class_count < lowest_images): 
-                lowest_images = class_count
-                lowest_classname = classname
-
-        # drop images of other classes to un-skew the dataset
-        all_classes = []
-        print("\nClass '{}' has the least pulled-images. Image count: {}".format(lowest_classname, lowest_images))
-        for classname in df['label'].unique():
-            all_imgs_for_class = df[df['label'] == classname]
-            redundancy = len(all_imgs_for_class) - lowest_images
-            lost_images = redundancy / len(all_imgs_for_class)
-            if redundancy > 0 :
-                all_imgs_for_class = all_imgs_for_class[:-redundancy]
-            if min_cutoff==None or len(all_imgs_for_class) >= min_cutoff:
-                all_classes.append(all_imgs_for_class)
-            print("{}: {} redundant images - {}% lost.".format(classname, redundancy, lost_images*100))
-        
-        df = pd.concat(all_classes)
-        print(df)
-
-        return df
 
     # load a pre-existing, trained model, and add a new, blank classifier ontop
-    def newClassifier(self, n_classes):
-        base_model = DenseNet201(weights="imagenet", include_top=False)    
+    def __make_classifier__(self):
 
-        #lock down the pre-trained layers for training
-        for layer in base_model.layers:
-            layer.trainable = False
+        # construct new classifier model from a pre-trained model (or load a model from a checkpoint directory)
+        print("\nMODEL---------------------")
 
-        x = base_model.output
-        
-        x = Dense(128, activation="relu", name="top_dense")(x)
-        x = Dropout(0.4)(x) # this aids in reducing overfitting
-        x = GlobalAveragePooling2D(name="avg_pool")(x)
+        if (self.checkpoint_path):
+            filename = self.checkpoint_path + '/arch.json'
+            f = open(filename, 'r')
+            json = f.read()
+            f.close()
+            new_model = model_from_json(json)
 
-        output = Dense(n_classes, activation="softmax", name="classify")(x)
-        model = Model(inputs=base_model.input, outputs=output)
+            weights_filename = self.checkpoint_path + '/weights.h5'
+            new_model.load_weights(weights_filename)
+            print("Model loaded from checkpoint file")
 
-        return model
+        else:
+            print("Model initialized from scratch.")
+            base_model = DenseNet201(weights="imagenet", include_top=False)    
+
+            #lock down the pre-trained layers for training
+            for layer in base_model.layers:
+                layer.trainable = False
+
+            x = base_model.output
+            
+            x = Dense(128, activation="relu", name="top_dense")(x)
+            x = Dropout(0.4)(x) # this aids in reducing overfitting
+            x = GlobalAveragePooling2D(name="avg_pool")(x)
+
+            output = Dense( len(self.classes), activation="softmax", name="classify")(x)
+            new_model = Model(inputs=base_model.input, outputs=output)
+
+        self.__model__ = new_model
+        return self.__model__
+
+
+    def init(self, unskew_data=True):
+        if self.use_dataset_cache:
+            self.dataset_frame = pd.read_csv('./dataset/dataset_cache', index_col=0)
+        elif self.config_path is not None:
+            self.__pull_dataset__()
+        self.dataset_frame.to_csv('./dataset/dataset_cache')
+
+        if unskew_data:
+            self.__unskew_data__()
+
+        self.classes = self.dataset_frame['label'].unique()
+        self.__make_classifier__()
+        return
+
 
     def train(
             self,
-            dataset_frame,
-            checkpoint=None,
             epochs=15,
             training_batch_size=200,
             validation_batch_size=200,
@@ -202,16 +264,16 @@ class TrainingInstance():
             lr=0.01, decay=0.0009):
 
         # Give absolute paths for images, then shuffle the dataset
-        dataset_frame['id'] = dataset_frame['id'].apply(lambda val:
+        self.dataset_frame['id'] = self.dataset_frame['id'].apply(lambda val:
             path.abspath(val)
         )
-        dataset_frame = dataset_frame.sample(frac=1).reset_index(drop=True)
+        self.dataset_frame = self.dataset_frame.sample(frac=1).reset_index(drop=True)
 
         # section off images for training and validation
         # training params:
         validation_split_ratio   = .1
-        total_training_samples   = int(len(dataset_frame) * (1.0-validation_split_ratio))
-        total_validation_samples = int(len(dataset_frame) * validation_split_ratio)
+        total_training_samples   = int(len(self.dataset_frame) * (1.0-validation_split_ratio))
+        total_validation_samples = int(len(self.dataset_frame) * validation_split_ratio)
 
         steps_per_epoch = int(total_training_samples / training_batch_size)
         validation_steps = int(total_validation_samples / validation_batch_size)
@@ -227,7 +289,7 @@ class TrainingInstance():
         data_flow = img_generator.flow_from_dataframe(
             shuffle=True,
             directory=None,
-            dataframe=dataset_frame,
+            dataframe=self.dataset_frame,
             x_col="id",
             y_col="label",
             class_mode="categorical",
@@ -238,7 +300,7 @@ class TrainingInstance():
         validation_data_flow = img_generator.flow_from_dataframe(
             shuffle=False,
             directory=None,
-            dataframe=dataset_frame,
+            dataframe=self.dataset_frame,
             x_col="id",
             y_col="label",
             class_mode="categorical",
@@ -247,50 +309,24 @@ class TrainingInstance():
             batch_size=validation_batch_size
         )
 
-        # for (x, y) in validation_data_flow:
-        #     x_np = np.array(x[0])
-        #     print(x_np.shape)
-        #     print("X----------------------------------------------\n{}\nY----------------------------------------------{}\n\n\n".format(x[0], y))
-        #     plt.imshow(x_np/255)
-        #     plt.pause(.5)
-        # return
-
-        # construct new classifier model from a pre-trained model (or load a model from a checkpoint directory)
-        print("\nMODEL---------------------")
-        classes = dataset_frame['label'].unique()
-        new_model = None
-        if (checkpoint):
-            filename = checkpoint+'/arch.json'
-            f = open(filename, 'r')
-            json = f.read()
-            f.close()
-            new_model = model_from_json(json)
-
-            weights_filename = checkpoint+'/weights.h5'
-            new_model.load_weights(weights_filename)
-
-            print("Model loaded from checkpoint file")
-        else:
-            new_model = self.newClassifier(n_classes=len(classes))
-            print("Model initialized from scratch.")
-        
-        new_model.compile(optimizer=SGD(lr=0.01, decay=0.0009), loss="categorical_crossentropy", metrics=['categorical_accuracy'])
+        self.__model__.compile(optimizer=SGD(lr=0.01, decay=0.0009), loss="categorical_crossentropy", metrics=['categorical_accuracy'])
 
         # training callbacks
         estopper = EarlyStopping(monitor='val_categorical_accuracy', patience=2)
 
         print("\nTRAINING---------------------\nepochs: {},\nsteps_per_epoch: {},\nvalidation_steps: {}".format( epochs, steps_per_epoch, validation_steps))
-        history = new_model.fit_generator(
-            TrainingInstance.flow_with_normalisation(data_flow),
+        history = self.__model__.fit_generator(
+            TrainingInstance.__flow_with_normalisation__(data_flow),
             steps_per_epoch=steps_per_epoch,
             epochs=epochs,
-            validation_data=TrainingInstance.flow_with_normalisation(validation_data_flow),
+            validation_data=TrainingInstance.__flow_with_normalisation__(validation_data_flow),
             validation_steps=validation_steps,
             callbacks=[estopper]
         )
 
-        self.__model__ = new_model
-        return (new_model, history)
+        self.__model__ = self.__model__
+        return (self.__model__, history)
+
 
     def save_model(self, output_directory="./out/{}{}"):
         model = self.__model__
@@ -316,6 +352,9 @@ class TrainingInstance():
         return save_dir
 
 
+
+
+
 def main():
     # silence tensorflow's useless info logging
     environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
@@ -329,29 +368,18 @@ def main():
     argparser.add_argument('--skip-download', action='store_true')
     args = argparser.parse_args()
 
-    instance = TrainingInstance()
+    instance = TrainingInstance(
+            config_path=args.config,
+            checkpoint_path=args.checkpoint_dir,
+            use_dataset_cache=args.skip_download,
+            min_images_per_class=args.min_images_per_class
+            )
 
-    print("\nDATASET---------------------")
-    if args.config:
-        # pull images and construct a table of image/label pairs
-        dataset_frame = instance.pull_dataset(args.config, args.min_images_per_class)
-        dataset_frame.to_csv('./dataset/dataset_cache')
-    elif args.skip_download:
-        dataset_frame = pd.read_csv('./dataset/dataset_cache', index_col=0)
-    else:
-        print("Invalid args: no config for pulling images was provided, and --skip-download was not declared")
-        return
 
     # start training
-    if (args.checkpoint_dir):
-        instance.train(dataset_frame, checkpoint=args.checkpoint_dir)
-    else:
-        instance.train(dataset_frame)
-
+    instance.init()
+    instance.train()
     instance.save_model()
-
-    #pred = decode_predictions(base_model.predict(x_input), top=3)[0]
-    #display_predictions(pred, test_image)
     return
 
 if __name__ == "__main__":
