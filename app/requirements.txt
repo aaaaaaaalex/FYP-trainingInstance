@@ -6,3 +6,4 @@ numpy
 pandas
 image
 h5py
+grpcio-tools
