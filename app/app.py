@@ -1,32 +1,37 @@
 import grpc
 import time
+import json
 import logging
-import threading
+from TrainingThread import TrainingThread
 from concurrent.futures import ThreadPoolExecutor
-
-import trainingInstance
-from TrainingService_pb2 import TrainingInstance, TrainingInstanceList, TrainRequest, TrainResponse, InstanceFilter
+from TrainingService_pb2 import TrainingInstanceInfo, TrainingInstanceList, TrainRequest, TrainResponse 
 from TrainingService_pb2_grpc import TrainingServiceServicer, add_TrainingServiceServicer_to_server as serve_training_servicer
-import TrainingService_pb2_grpc
 
 
 class TrainingServicer (TrainingServiceServicer):
     def __init__(self):
         return
 
-    def TrainModel (self, req, cont):
-        print("Called!")
-        print("req: {}, \n\n cont: {}".format(req, cont))
-        
-        response = TrainResponse()
+
+    def TrainModel (self, train_request, cont):
+        logging.info("TrainModel request: {}".format(train_request))
+
+        # parse args
+        args = {}
+        args.classlist = json.loads(train_request.classlist)
+        thr = TrainingThread(args=args)
+        thr.start()
+
+
+        response = TrainResponse(response="Training Started")
         return response
 
+
     def GetActiveTrainingInstances (self, req, cont):
-        print("Called!")
-        print("req: {}, \n\n cont: {}".format(req, cont))
+        logging.info("GetActiveTrainingInstances request: {}".format(req))
 
         return TrainingInstanceList(
-                    [TrainingInstance( date_started="420th" , classlist="[ducks, janMichaelVincents, deathGrips]", classlist_locations="[haha nothing here boiii]" )])
+                    instances=[TrainingInstanceInfo( date_started="666th" , classlist="[ducks, haha's, the beegees]", classlist_locations="[haha nothing here boiii]" )])
 
 
 _ONE_DAY_IN_SECONDS = (60*60) * 24
