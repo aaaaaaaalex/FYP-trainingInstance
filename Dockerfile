@@ -8,7 +8,7 @@ RUN ["apt", "update"]
 RUN ["pip", "install", "-r", "requirements.txt"]
 
 CMD ["python", "-u",\
-        "trainingInstance.py",\
+        "app.py",\
         #"--config", "dataset/classes.config",\
         "--checkpoint-dir", "./out/1553722589",\
         "--skip-download"]

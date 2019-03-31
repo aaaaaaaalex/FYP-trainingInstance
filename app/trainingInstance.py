@@ -171,7 +171,7 @@ class TrainingInstance():
 
     # for every classname in the config path, pull image links
     # and store them in the filesystem, return a table of labels for each file
-    def __pull_images__(self):
+    def __make_dataset__(self):
         dataset = {'id': [], 'label': []}
 
         # find class names to train on and attempt to download images for them
@@ -242,7 +242,7 @@ class TrainingInstance():
         if self.use_dataset_cache:
             self.dataset_frame = pd.read_csv('./dataset/dataset_cache', index_col=0)
         elif self.config_path is not None:
-            self.__pull_images__()
+            self.__make_dataset__()
 
         self.dataset_frame.to_csv('./dataset/dataset_cache')
 
