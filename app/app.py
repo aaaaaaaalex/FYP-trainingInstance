@@ -17,11 +17,10 @@ class TrainingServicer (TrainingServiceServicer):
         logging.info("TrainModel request: {}".format(train_request))
 
         # parse args
-        args = {}
-        args.classlist = json.loads(train_request.classlist)
+        args = {'config' : json.loads(train_request.classlist),
+                'skip_download' : True,}
         thr = TrainingThread(args=args)
         thr.start()
-
 
         response = TrainResponse(response="Training Started")
         return response
@@ -46,7 +45,8 @@ def serve():
         while True:
             time.sleep(_ONE_DAY_IN_SECONDS)
     except KeyboardInterrupt:
-        server.stop(0)
+        print("bye!")
+    server.stop(0)
 
 
 if __name__ == '__main__':

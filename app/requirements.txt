@@ -7,3 +7,4 @@ pandas
 image
 h5py
 grpcio-tools
+mysql-connector
