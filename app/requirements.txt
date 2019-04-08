@@ -1,3 +1,4 @@
+logging
 requests
 flask
 keras
@@ -6,3 +7,5 @@ numpy
 pandas
 image
 h5py
+grpcio-tools
+mysql-connector
