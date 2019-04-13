@@ -1,5 +1,4 @@
-*/dataset/img
-*/dataset/img/*
+instances/*
 */.DS_Store
 *.swp
 */__pycache__
