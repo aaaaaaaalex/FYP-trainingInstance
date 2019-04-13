@@ -1,7 +1,8 @@
 import grpc
-import time
 import json
 import logging
+from time import sleep, time
+from mysql import connector
 from TrainingThread import TrainingThread
 from concurrent.futures import ThreadPoolExecutor
 from TrainingService_pb2 import TrainingInstanceInfo, TrainingInstanceList, TrainRequest, TrainResponse 
@@ -10,6 +11,20 @@ from TrainingService_pb2_grpc import TrainingServiceServicer, add_TrainingServic
 
 class TrainingServicer (TrainingServiceServicer):
     def __init__(self):
+        while True:
+            try:
+                self.db = connector.connect(
+                    host="db",
+                    user="root",
+                    passwd="test",
+                    database='app'
+                )
+                self.dbcursor = self.db.cursor(buffered=True)
+                print("DB connection established!")
+                break
+            except connector.errors.InterfaceError:
+                sleep(5)
+                continue
         return
 
 
@@ -17,9 +32,10 @@ class TrainingServicer (TrainingServiceServicer):
         logging.info("TrainModel request: {}".format(train_request))
 
         # parse args
-        args = {'config' : json.loads(train_request.classlist),
-                'skip_download' : True,}
-        thr = TrainingThread(args=args)
+        trainingargs = {
+                'class_config' : json.loads(train_request.classlist),
+            }
+        thr = TrainingThread(self.dbcursor, trainingargs, name=int(time()) )
         thr.start()
 
         response = TrainResponse(response="Training Started")
@@ -33,8 +49,8 @@ class TrainingServicer (TrainingServiceServicer):
                     instances=[TrainingInstanceInfo( date_started="666th" , classlist="[ducks, haha's, the beegees]", classlist_locations="[haha nothing here boiii]" )])
 
 
-_ONE_DAY_IN_SECONDS = (60*60) * 24
 
+_ONE_DAY_IN_SECONDS = (60*60) * 24
 def serve():
     server = grpc.server(ThreadPoolExecutor(max_workers=10))
     server.add_insecure_port('[::]:8081')
@@ -43,7 +59,7 @@ def serve():
     server.start()
     try:
         while True:
-            time.sleep(_ONE_DAY_IN_SECONDS)
+            sleep(_ONE_DAY_IN_SECONDS)
     except KeyboardInterrupt:
         print("bye!")
     server.stop(0)
