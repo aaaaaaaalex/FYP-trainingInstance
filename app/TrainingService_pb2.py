@@ -19,7 +19,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   package='',
   syntax='proto3',
   serialized_options=None,
-  serialized_pb=_b('\n\x15TrainingService.proto\":\n\x0cTrainRequest\x12\x11\n\tclasslist\x18\x01 \x01(\t\x12\x17\n\x0f\x63heckpoint_name\x18\x02 \x01(\t\"!\n\rTrainResponse\x12\x10\n\x08response\x18\x01 \x01(\t\":\n\x0eInstanceFilter\x12\x13\n\x0bhas_classes\x18\x01 \x01(\t\x12\x13\n\x0bnum_classes\x18\x02 \x01(\x05\"@\n\x14TrainingInstanceList\x12(\n\tinstances\x18\x01 \x03(\x0b\x32\x15.TrainingInstanceInfo\"?\n\x14TrainingInstanceInfo\x12\x14\n\x0c\x64\x61te_started\x18\x01 \x01(\t\x12\x11\n\tclasslist\x18\x02 \x01(\t2\x88\x01\n\x0fTrainingService\x12-\n\nTrainModel\x12\r.TrainRequest\x1a\x0e.TrainResponse\"\x00\x12\x46\n\x1aGetActiveTrainingInstances\x12\x0f.InstanceFilter\x1a\x15.TrainingInstanceList\"\x00\x62\x06proto3')
+  serialized_pb=_b('\n\x15TrainingService.proto\":\n\x0cTrainRequest\x12\x11\n\tclasslist\x18\x01 \x01(\t\x12\x17\n\x0f\x63heckpoint_name\x18\x02 \x01(\t\"1\n\rTrainResponse\x12\x0e\n\x06status\x18\x01 \x01(\x05\x12\x10\n\x08response\x18\x02 \x01(\t\":\n\x0eInstanceFilter\x12\x13\n\x0bhas_classes\x18\x01 \x01(\t\x12\x13\n\x0bnum_classes\x18\x02 \x01(\x05\"@\n\x14TrainingInstanceList\x12(\n\tinstances\x18\x01 \x03(\x0b\x32\x15.TrainingInstanceInfo\"?\n\x14TrainingInstanceInfo\x12\x14\n\x0c\x64\x61te_started\x18\x01 \x01(\t\x12\x11\n\tclasslist\x18\x02 \x01(\t2\x88\x01\n\x0fTrainingService\x12-\n\nTrainModel\x12\r.TrainRequest\x1a\x0e.TrainResponse\"\x00\x12\x46\n\x1aGetActiveTrainingInstances\x12\x0f.InstanceFilter\x1a\x15.TrainingInstanceList\"\x00\x62\x06proto3')
 )
 
 
@@ -71,8 +71,15 @@ _TRAINRESPONSE = _descriptor.Descriptor(
   containing_type=None,
   fields=[
     _descriptor.FieldDescriptor(
-      name='response', full_name='TrainResponse.response', index=0,
-      number=1, type=9, cpp_type=9, label=1,
+      name='status', full_name='TrainResponse.status', index=0,
+      number=1, type=5, cpp_type=1, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='response', full_name='TrainResponse.response', index=1,
+      number=2, type=9, cpp_type=9, label=1,
       has_default_value=False, default_value=_b("").decode('utf-8'),
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
@@ -90,7 +97,7 @@ _TRAINRESPONSE = _descriptor.Descriptor(
   oneofs=[
   ],
   serialized_start=85,
-  serialized_end=118,
+  serialized_end=134,
 )
 
 
@@ -127,8 +134,8 @@ _INSTANCEFILTER = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=120,
-  serialized_end=178,
+  serialized_start=136,
+  serialized_end=194,
 )
 
 
@@ -158,8 +165,8 @@ _TRAININGINSTANCELIST = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=180,
-  serialized_end=244,
+  serialized_start=196,
+  serialized_end=260,
 )
 
 
@@ -196,8 +203,8 @@ _TRAININGINSTANCEINFO = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=246,
-  serialized_end=309,
+  serialized_start=262,
+  serialized_end=325,
 )
 
 _TRAININGINSTANCELIST.fields_by_name['instances'].message_type = _TRAININGINSTANCEINFO
@@ -251,8 +258,8 @@ _TRAININGSERVICE = _descriptor.ServiceDescriptor(
   file=DESCRIPTOR,
   index=0,
   serialized_options=None,
-  serialized_start=312,
-  serialized_end=448,
+  serialized_start=328,
+  serialized_end=464,
   methods=[
   _descriptor.MethodDescriptor(
     name='TrainModel',
