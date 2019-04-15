@@ -8,27 +8,26 @@ service TrainingService {
 
 
 // classes/class_locations should be JSON lists of parallel strings
-message TrainingInstanceInfo {
-    string date_started = 1;
-    string classlist = 2;
-    string classlist_locations = 3;
-}
-message TrainingInstanceList {
-    repeated TrainingInstanceInfo instances = 1;
-}
-
-
-// classes/class_locations should be JSON lists of parallel strings
 message TrainRequest {
     string classlist = 1;
-    string classlist_locations = 2;
+    string checkpoint_name = 2;
 }
 message TrainResponse {
     string response = 1;
 }
 
+
 // filter a list of training instances
 message InstanceFilter {
     string has_classes = 1;
     int32 num_classes = 2;
+}
+
+
+message TrainingInstanceList {
+    repeated TrainingInstanceInfo instances = 1;
+}
+message TrainingInstanceInfo {
+    string date_started = 1;
+    string classlist = 2; // JSON array
 }
