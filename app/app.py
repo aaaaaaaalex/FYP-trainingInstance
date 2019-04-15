@@ -31,12 +31,16 @@ class TrainingServicer (TrainingServiceServicer):
     def TrainModel (self, train_request, cont):
         logging.info("TrainModel request: {}".format(train_request))
 
+
         # parse args
+        trainingName = train_request.checkpoint_name if train_request.checkpoint_name else int(time())
         trainingargs = {
                 'class_config' : json.loads(train_request.classlist),
             }
-        thr = TrainingThread(self.dbcursor, trainingargs, name=int(time()) )
+        thr = TrainingThread(self.dbcursor, trainingargs, name=trainingName )
         thr.start()
+
+        print("trainingName: {}".format(trainingName))
 
         response = TrainResponse(response="Training Started")
         return response

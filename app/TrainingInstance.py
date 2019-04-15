@@ -73,18 +73,19 @@ class TrainingInstance():
     def __make_classifier__(self):
         # construct new classifier model from a pre-trained model (or load a model from a checkpoint directory)
         if (self.checkpoint_path):
-            filename = self.checkpoint_path + '/arch.json'
-            f = open(filename, 'r')
+            arch_filename = self.checkpoint_path + 'arch.json'
+            weights_filename = self.checkpoint_path + 'weights.h5'
+
+            f = open(arch_filename, 'r')
             json = f.read()
             f.close()
+            
             new_model = model_from_json(json)
-
-            weights_filename = self.checkpoint_path + '/weights.h5'
             new_model.load_weights(weights_filename)
+
             print("Model loaded from checkpoint file")
 
         else:
-            print("Model initialized from scratch.")
             base_model = DenseNet201(weights="imagenet", include_top=False)    
 
             #lock down the pre-trained layers for training

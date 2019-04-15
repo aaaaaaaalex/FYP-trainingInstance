@@ -58,13 +58,16 @@ class TrainingThread(threading.Thread):
                 self.dbcursor,
                 workdir=workdir,
                 class_config=self.trainingargs['class_config'])
+
         dataset_dataframe = dataset_creator.get_dataset_dataframe()
+        checkpoint_path = workdir+'out/' if path.exists(workdir+'out') else None
 
         instance = TrainingInstance(
-                dataset_dataframe=dataset_dataframe)
+                dataset_dataframe=dataset_dataframe,
+                checkpoint_path=checkpoint_path)
         
         # start training
-        model = instance.train()
+        model, _ = instance.train()
         TrainingThread.save_model(model, output_directory=workdir)
 
         exit()

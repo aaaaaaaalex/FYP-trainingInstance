@@ -141,7 +141,7 @@ class DatasetCreator ():
 
         # construct a table containing filenames and their corresponding classes
         df = pd.DataFrame(data=dataset)
-        df.to_csv('{}/dataset/dataset_cache.csv'.format(self.workdir))
+        df.to_csv('{}dataset/dataset_cache.csv'.format(self.workdir))
 
         return df
 
@@ -153,10 +153,9 @@ class DatasetCreator ():
 
             if self.class_config:
                 df = self.__make_dataset__(self.class_config)
-            
             # check for a map of cached-images already on disk
             else:
-                df = pd.read_csv('{}dataset/dataset_cache'.format(self.workdir), index_col=0)
+                df = pd.read_csv('{}dataset/dataset_cache.csv'.format(self.workdir), index_col=0)
 
             if self.unskew_data is True:
                 df = DatasetCreator.__unskew_data__(df)
@@ -166,7 +165,7 @@ class DatasetCreator ():
                 lambda val:
                     path.abspath(val)
                 )
-            
+                
             self.dataset_dataframe = df
         
         return self.dataset_dataframe
