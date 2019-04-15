@@ -44,13 +44,17 @@ from tensorflow import logging as tflogging
 
 import argparse
 import h5py
-import time
+import logging
 import numpy as np
+import time
 
 class TrainingInstance():
     def __init__(self,
             dataset_dataframe,
             checkpoint_path = None):
+
+        environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+        tflogging.set_verbosity(tflogging.ERROR)
 
         self.dataset_dataframe = dataset_dataframe
         self.classes = self.dataset_dataframe['label'].unique()
@@ -83,7 +87,7 @@ class TrainingInstance():
             new_model = model_from_json(json)
             new_model.load_weights(weights_filename)
 
-            print("Model loaded from checkpoint file")
+            logging.info("Model loaded from checkpoint file")
 
         else:
             base_model = DenseNet201(weights="imagenet", include_top=False)    
@@ -161,7 +165,7 @@ class TrainingInstance():
         # training callbacks
         estopper = EarlyStopping(monitor='val_categorical_accuracy', patience=2)
 
-        print("\nTRAINING---------------------\nepochs: {},\nsteps_per_epoch: {},\nvalidation_steps: {}".format( epochs, steps_per_epoch, validation_steps))
+        logging.info("\nTRAINING---------------------\nepochs: {},\nsteps_per_epoch: {},\nvalidation_steps: {}".format( epochs, steps_per_epoch, validation_steps))
         history = model.fit_generator(
             TrainingInstance.__flow_with_normalisation__(data_flow),
             steps_per_epoch=steps_per_epoch,

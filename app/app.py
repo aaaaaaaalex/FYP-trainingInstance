@@ -20,7 +20,7 @@ class TrainingServicer (TrainingServiceServicer):
                     database='app'
                 )
                 self.dbcursor = self.db.cursor(buffered=True)
-                print("DB connection established!")
+                logging.info("DB connection established!")
                 break
             except connector.errors.InterfaceError:
                 sleep(5)
@@ -31,25 +31,23 @@ class TrainingServicer (TrainingServiceServicer):
     def TrainModel (self, train_request, cont):
         logging.info("TrainModel request: {}".format(train_request))
 
-        # check argws
-        if train_request.checkpoint_name or train_request.classlist:
+        # check args
+        if train_request.checkpoint_name.strip() or (train_request.classlist and len(train_request.classlist) > 1):
             # parse args
             trainingName = train_request.checkpoint_name if train_request.checkpoint_name else int(time())
             trainingargs = {
-                    'class_config' : json.loads(train_request.classlist),
+                    'class_config' : json.loads(train_request.classlist) if train_request.classlist else None,
                 }
             thr = TrainingThread(self.dbcursor, trainingargs, name=trainingName )
             thr.start()
 
-            response = TrainResponse(status=200, response="Training Started.")
-
+            response = TrainResponse(status=200, response="Training Started.", instance_name=trainingName)
         else: response = TrainResponse(status=422, response="No classlist or checkpoint_name specified.")
         return response
 
 
     def GetActiveTrainingInstances (self, req, cont):
         logging.info("GetActiveTrainingInstances request: {}".format(req))
-
         return TrainingInstanceList(
                     instances=[TrainingInstanceInfo( date_started="666th" , classlist="[ducks, haha's, the beegees]", classlist_locations="[haha nothing here boiii]" )])
 
@@ -71,5 +69,5 @@ def serve():
 
 
 if __name__ == '__main__':
-    logging.basicConfig()
+    logging.basicConfig(level=logging.INFO)
     serve()

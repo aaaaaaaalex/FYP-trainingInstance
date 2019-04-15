@@ -52,7 +52,7 @@ class TrainingThread(threading.Thread):
         if not path.exists(workdir):
             makedirs(workdir)
 
-        # TODO: sanitize classlist, currently, erronious (possibly dangerous) classnames will reach the SQL request untouched
+        # TODO: sanitize classlist - currently, erronious (possibly dangerous) classnames will reach the SQL request untouched
 
         dataset_creator = DatasetCreator(
                 self.dbcursor,
@@ -70,4 +70,5 @@ class TrainingThread(threading.Thread):
         model, _ = instance.train()
         TrainingThread.save_model(model, output_directory=workdir)
 
+        logging.info('Training Complete for model {}'.format(self.instanceName))
         exit()

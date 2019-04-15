@@ -1,3 +1,4 @@
+import logging
 import pandas as pd
 import requests
 
@@ -32,7 +33,7 @@ class DatasetCreator ():
 
         # drop images of other classes to un-skew the dataset
         all_classes = []
-        print("\nClass '{}' has the least pulled-images. Image count: {}".format(lowest_classname, lowest_images))
+        logging.info("\nClass '{}' has the least pulled-images. Image count: {}".format(lowest_classname, lowest_images))
         for classname in df['label'].unique():
             all_imgs_for_class = df[df['label'] == classname]
             redundancy = len(all_imgs_for_class) - lowest_images
@@ -76,8 +77,6 @@ class DatasetCreator ():
 
         if not path.exists(save_dir):
             makedirs(save_dir)
-
-        images_pulled = []
         
         # iterate over each link, carrying both the link and it's list index
         for i, link in enumerate(links):
@@ -126,7 +125,7 @@ class DatasetCreator ():
             if classname == '':
                 continue
             
-            print("Pulling images for class: {}".format(classname))
+            logging.info("Pulling images for class: {}".format(classname))
             dest_path = '{}dataset/{}/'.format(self.workdir, classname)
             
             # get image links by class
@@ -137,7 +136,7 @@ class DatasetCreator ():
             for filename in imgs_pulled:
                 dataset['id'].append(filename)
                 dataset['label'].append(classname)
-            print("'{}' images pulled: {}".format(classname, len(imgs_pulled)))
+            logging.debug("'{}' images pulled: {}".format(classname, len(imgs_pulled)))
 
         # construct a table containing filenames and their corresponding classes
         df = pd.DataFrame(data=dataset)
