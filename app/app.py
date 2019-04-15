@@ -31,18 +31,19 @@ class TrainingServicer (TrainingServiceServicer):
     def TrainModel (self, train_request, cont):
         logging.info("TrainModel request: {}".format(train_request))
 
+        # check argws
+        if train_request.checkpoint_name or train_request.classlist:
+            # parse args
+            trainingName = train_request.checkpoint_name if train_request.checkpoint_name else int(time())
+            trainingargs = {
+                    'class_config' : json.loads(train_request.classlist),
+                }
+            thr = TrainingThread(self.dbcursor, trainingargs, name=trainingName )
+            thr.start()
 
-        # parse args
-        trainingName = train_request.checkpoint_name if train_request.checkpoint_name else int(time())
-        trainingargs = {
-                'class_config' : json.loads(train_request.classlist),
-            }
-        thr = TrainingThread(self.dbcursor, trainingargs, name=trainingName )
-        thr.start()
+            response = TrainResponse(status=200, response="Training Started.")
 
-        print("trainingName: {}".format(trainingName))
-
-        response = TrainResponse(response="Training Started")
+        else: response = TrainResponse(status=422, response="No classlist or checkpoint_name specified.")
         return response
 
 
