@@ -20,28 +20,28 @@ class TrainingThread(threading.Thread):
 
 
     @staticmethod
-    def save_model(self, model, output_directory="./instance/"):
+    def save_model(model, output_directory):
 
-        output_directory += "out/{}{}"
+        output_directory += "out/{}"
+        arch_path = output_directory.format('arch.json')
+        weights_path = output_directory.format('weights.h5')
 
         # check if 'out' dir exists, create it if not
-        if not path.exists(output_directory.format('','')):
-            makedirs(output_directory.format('', ''))
+        if not path.exists(output_directory.format('')):
+            makedirs(output_directory.format(''))
         
         # repeat for unique, model_nameed checkpoint directory
-        if not path.exists( output_directory.format(model_name, '') ):
-            makedirs( output_directory.format(model_name, '') )
+        if not path.exists( output_directory.format('') ):
+            makedirs( output_directory.format('') )
 
         # write model architecture to JSON file
-        with open(output_directory.format( model_name, '/arch.json'), 'w') as f:
+        with open(arch_path, 'w') as f:
             f.write(model.to_json())
         
         # write weights to .h5 file
-        model.save_weights(output_directory.format( model_name, '/weights.h5'))
-
-        save_dir = output_directory.format(model_name, '')
-        print("\nMODEL SAVED TO:{}".format(save_dir))
-        return save_dir
+        model.save_weights(weights_path)
+        
+        return (arch_path, weights_path) 
 
 
     def run(self):
@@ -51,6 +51,8 @@ class TrainingThread(threading.Thread):
         workdir = './instances/{}/'.format(self.instanceName)
         if not path.exists(workdir):
             makedirs(workdir)
+
+        # TODO: sanitize classlist, currently, erronious (possibly dangerous) classnames will reach the SQL request untouched
 
         dataset_creator = DatasetCreator(
                 self.dbcursor,
@@ -63,6 +65,6 @@ class TrainingThread(threading.Thread):
         
         # start training
         model = instance.train()
-        instance.save_model(model, workdir)
+        TrainingThread.save_model(model, output_directory=workdir)
 
-        return
+        exit()

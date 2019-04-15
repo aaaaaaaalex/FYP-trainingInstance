@@ -8,7 +8,7 @@ from PIL import Image as pimage, ImageFile
 
 class DatasetCreator ():
 
-    def __init__(self, dbcursor, workdir='./', class_config=None, unskew_data=True):
+    def __init__(self, dbcursor, workdir, class_config=None, unskew_data=True):
         self.class_config = class_config
         self.dbcursor = dbcursor
         self.unskew_data = unskew_data
@@ -131,12 +131,13 @@ class DatasetCreator ():
             
             # get image links by class
             img_links = self.__get_class_links__(classname)
+
             # download images using links
             imgs_pulled = DatasetCreator.__download_imgs__(img_links, dest_path)
             for filename in imgs_pulled:
                 dataset['id'].append(filename)
                 dataset['label'].append(classname)
-            print("\t{} images pulled: {}".format(classname, len(imgs_pulled)))
+            print("'{}' images pulled: {}".format(classname, len(imgs_pulled)))
 
         # construct a table containing filenames and their corresponding classes
         df = pd.DataFrame(data=dataset)
