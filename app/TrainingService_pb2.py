@@ -19,7 +19,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   package='',
   syntax='proto3',
   serialized_options=None,
-  serialized_pb=_b('\n\x15TrainingService.proto\":\n\x0cTrainRequest\x12\x11\n\tclasslist\x18\x01 \x01(\t\x12\x17\n\x0f\x63heckpoint_name\x18\x02 \x01(\t\"H\n\rTrainResponse\x12\x0e\n\x06status\x18\x01 \x01(\x05\x12\x10\n\x08response\x18\x02 \x01(\t\x12\x15\n\rinstance_name\x18\x03 \x01(\t\":\n\x0eInstanceFilter\x12\x13\n\x0bhas_classes\x18\x01 \x01(\t\x12\x13\n\x0bnum_classes\x18\x02 \x01(\x05\"@\n\x14TrainingInstanceList\x12(\n\tinstances\x18\x01 \x03(\x0b\x32\x15.TrainingInstanceInfo\"?\n\x14TrainingInstanceInfo\x12\x14\n\x0c\x64\x61te_started\x18\x01 \x01(\t\x12\x11\n\tclasslist\x18\x02 \x01(\t2\x88\x01\n\x0fTrainingService\x12-\n\nTrainModel\x12\r.TrainRequest\x1a\x0e.TrainResponse\"\x00\x12\x46\n\x1aGetActiveTrainingInstances\x12\x0f.InstanceFilter\x1a\x15.TrainingInstanceList\"\x00\x62\x06proto3')
+  serialized_pb=_b('\n\x15TrainingService.proto\"Q\n\x0cTrainRequest\x12\x15\n\rinstance_name\x18\x01 \x01(\t\x12\x17\n\x0f\x63heckpoint_name\x18\x02 \x01(\t\x12\x11\n\tclasslist\x18\x03 \x01(\t\"H\n\rTrainResponse\x12\x0e\n\x06status\x18\x01 \x01(\x05\x12\x10\n\x08response\x18\x02 \x01(\t\x12\x15\n\rinstance_name\x18\x03 \x01(\t\":\n\x0eInstanceFilter\x12\x13\n\x0bhas_classes\x18\x01 \x01(\t\x12\x13\n\x0bnum_classes\x18\x02 \x01(\x05\"@\n\x14TrainingInstanceList\x12(\n\tinstances\x18\x01 \x03(\x0b\x32\x15.TrainingInstanceInfo\"?\n\x14TrainingInstanceInfo\x12\x14\n\x0c\x64\x61te_started\x18\x01 \x01(\t\x12\x11\n\tclasslist\x18\x02 \x01(\t2\x88\x01\n\x0fTrainingService\x12-\n\nTrainModel\x12\r.TrainRequest\x1a\x0e.TrainResponse\"\x00\x12\x46\n\x1aGetActiveTrainingInstances\x12\x0f.InstanceFilter\x1a\x15.TrainingInstanceList\"\x00\x62\x06proto3')
 )
 
 
@@ -33,7 +33,7 @@ _TRAINREQUEST = _descriptor.Descriptor(
   containing_type=None,
   fields=[
     _descriptor.FieldDescriptor(
-      name='classlist', full_name='TrainRequest.classlist', index=0,
+      name='instance_name', full_name='TrainRequest.instance_name', index=0,
       number=1, type=9, cpp_type=9, label=1,
       has_default_value=False, default_value=_b("").decode('utf-8'),
       message_type=None, enum_type=None, containing_type=None,
@@ -42,6 +42,13 @@ _TRAINREQUEST = _descriptor.Descriptor(
     _descriptor.FieldDescriptor(
       name='checkpoint_name', full_name='TrainRequest.checkpoint_name', index=1,
       number=2, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=_b("").decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='classlist', full_name='TrainRequest.classlist', index=2,
+      number=3, type=9, cpp_type=9, label=1,
       has_default_value=False, default_value=_b("").decode('utf-8'),
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
@@ -59,7 +66,7 @@ _TRAINREQUEST = _descriptor.Descriptor(
   oneofs=[
   ],
   serialized_start=25,
-  serialized_end=83,
+  serialized_end=106,
 )
 
 
@@ -103,8 +110,8 @@ _TRAINRESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=85,
-  serialized_end=157,
+  serialized_start=108,
+  serialized_end=180,
 )
 
 
@@ -141,8 +148,8 @@ _INSTANCEFILTER = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=159,
-  serialized_end=217,
+  serialized_start=182,
+  serialized_end=240,
 )
 
 
@@ -172,8 +179,8 @@ _TRAININGINSTANCELIST = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=219,
-  serialized_end=283,
+  serialized_start=242,
+  serialized_end=306,
 )
 
 
@@ -210,8 +217,8 @@ _TRAININGINSTANCEINFO = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=285,
-  serialized_end=348,
+  serialized_start=308,
+  serialized_end=371,
 )
 
 _TRAININGINSTANCELIST.fields_by_name['instances'].message_type = _TRAININGINSTANCEINFO
@@ -265,8 +272,8 @@ _TRAININGSERVICE = _descriptor.ServiceDescriptor(
   file=DESCRIPTOR,
   index=0,
   serialized_options=None,
-  serialized_start=351,
-  serialized_end=487,
+  serialized_start=374,
+  serialized_end=510,
   methods=[
   _descriptor.MethodDescriptor(
     name='TrainModel',

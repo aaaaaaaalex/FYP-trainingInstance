@@ -74,6 +74,7 @@ class DatasetCreator ():
     def __download_imgs__(links, save_dir):
         # throw error if links isnt a list
         assert type(links) is list
+        images_pulled = []
 
         if not path.exists(save_dir):
             makedirs(save_dir)
@@ -150,11 +151,14 @@ class DatasetCreator ():
     def get_dataset_dataframe(self):
         if self.dataset_dataframe is None:
 
-            if self.class_config:
-                df = self.__make_dataset__(self.class_config)
-            # check for a map of cached-images already on disk
-            else:
-                df = pd.read_csv('{}dataset/dataset_cache.csv'.format(self.workdir), index_col=0)
+            try:
+                if self.class_config:
+                    df = self.__make_dataset__(self.class_config)
+                # check for a map of cached-images already on disk
+                else:
+                    df = pd.read_csv('{}dataset/dataset_cache.csv'.format(self.workdir), index_col=0)
+            except FileNotFoundError:
+                raise FileNotFoundError('Dataset Creator was not passed a class config, and no dataset cache is present')
 
             if self.unskew_data is True:
                 df = DatasetCreator.__unskew_data__(df)

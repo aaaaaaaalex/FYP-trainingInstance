@@ -9,8 +9,9 @@ service TrainingService {
 
 // classes/class_locations should be JSON lists of parallel strings
 message TrainRequest {
-    string classlist = 1;
-    string checkpoint_name = 2;
+    string instance_name = 1; // if an instance already exists, it's training is continued with it's existing dataset.
+    string checkpoint_name = 2; // the name of a pre-existing instance, to train on new data
+    string classlist = 3;
 }
 message TrainResponse {
     int32 status = 1;
