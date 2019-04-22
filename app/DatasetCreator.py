@@ -5,7 +5,9 @@ import requests
 from io import BytesIO
 from os import path, makedirs
 from PIL import Image as pimage, ImageFile
+from urllib import parse as urlparse
 
+IMAGE_ASSETS_PATH = '/assets/images/'
 
 class DatasetCreator ():
 
@@ -81,21 +83,28 @@ class DatasetCreator ():
         
         # iterate over each link, carrying both the link and it's list index
         for i, link in enumerate(links):
-            try:
-                # make a GET request and dont follow redirects - timeout after 3 secs
-                r = requests.get(link[0], timeout=3)
-                r.raise_for_status()
+            hostname = urlparse(link).hostname or None
+            if hostname is not None:
+                try:
+                    # make a GET request and dont follow redirects - timeout after 3 secs
+                    r = requests.get(link[0], timeout=3)
+                    r.raise_for_status()
 
-                # make sure the response is an image, not HTML
-                img = DatasetCreator.__sanitise_image__(r.content)
-                filename = "{}img-{}.jpg".format(save_dir, len(images_pulled))
-                with open(filename, 'wb') as f:
-                    f.write(img)
+                    # make sure the response is an image, not HTML
+                    img = DatasetCreator.__sanitise_image__(r.content)
+                    filename = "{}img-{}.jpg".format(save_dir, len(images_pulled))
+                    with open(filename, 'wb') as f:
+                        f.write(img)
 
-                images_pulled.append(filename)
+                    images_pulled.append(filename)
 
-            except (requests.exceptions.RequestException, OSError) as err:
-                continue
+                except (requests.exceptions.RequestException, OSError) as err:
+                    continue
+            
+            # treat image as one in a local volume
+            elif path.isfile(link):
+                images_pulled.append(link)
+                
         
         return images_pulled
 
