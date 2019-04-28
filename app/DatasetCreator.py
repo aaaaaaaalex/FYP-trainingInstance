@@ -5,7 +5,7 @@ import requests
 from io import BytesIO
 from os import path, makedirs
 from PIL import Image as pimage, ImageFile
-from urllib import parse as urlparse
+from urllib.parse import urlparse
 
 IMAGE_ASSETS_PATH = '/assets/images/'
 
@@ -17,7 +17,6 @@ class DatasetCreator ():
         self.unskew_data = unskew_data
         self.workdir = workdir
         self.dataset_dataframe = None
-        
         
 
     # ensure that there is the same number of data for every class in a dataframe
@@ -84,28 +83,25 @@ class DatasetCreator ():
         # iterate over each link, carrying both the link and it's list index
         for i, link in enumerate(links):
             hostname = urlparse(link).hostname or None
-            if hostname is not None:
+            if hostname is None and path.isfile(link):
+                images_pulled.append(link) # treat image as one in a local volume
+
+            else:
                 try:
                     # make a GET request and dont follow redirects - timeout after 3 secs
-                    r = requests.get(link[0], timeout=3)
+                    r = requests.get(link, timeout=3)
                     r.raise_for_status()
 
                     # make sure the response is an image, not HTML
                     img = DatasetCreator.__sanitise_image__(r.content)
-                    filename = "{}img-{}.jpg".format(save_dir, len(images_pulled))
+                    filename = "{}img-{}.jpg".format(save_dir, i)
                     with open(filename, 'wb') as f:
                         f.write(img)
-
                     images_pulled.append(filename)
 
                 except (requests.exceptions.RequestException, OSError) as err:
                     continue
             
-            # treat image as one in a local volume
-            elif path.isfile(link):
-                images_pulled.append(link)
-                
-        
         return images_pulled
 
 
@@ -122,6 +118,7 @@ class DatasetCreator ():
             """.format(classname) )
 
         result = cursor.fetchall()
+        result = [x[0] for x in result]
         return result
 
 
@@ -157,7 +154,7 @@ class DatasetCreator ():
 
     # get a dataframe of pulled-images
     # triggers a download if it hasn't already pulled images
-    def get_dataset_dataframe(self):
+    def get_dataset_dataframe(self, shuffle=True):
         if self.dataset_dataframe is None:
 
             try:
@@ -178,6 +175,8 @@ class DatasetCreator ():
                     path.abspath(val)
                 )
                 
+            # shuffle data
+            if shuffle: df = df.sample(frac=1).reset_index(drop=True)
             self.dataset_dataframe = df
         
         return self.dataset_dataframe
