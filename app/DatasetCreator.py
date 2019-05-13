@@ -84,7 +84,8 @@ class DatasetCreator ():
         for i, link in enumerate(links):
             hostname = urlparse(link).hostname or None
             if hostname is None and path.isfile(link):
-                images_pulled.append(link) # treat image as one in a local volume
+                images_pulled.append( IMAGE_ASSETS_PATH + link ) # treat image as one in a local volume
+                print(images_pulled[-1])
 
             else:
                 try:
@@ -156,7 +157,6 @@ class DatasetCreator ():
     # triggers a download if it hasn't already pulled images
     def get_dataset_dataframe(self, shuffle=True):
         if self.dataset_dataframe is None:
-
             try:
                 if self.class_config:
                     df = self.__make_dataset__(self.class_config)

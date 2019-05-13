@@ -30,11 +30,12 @@
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.                                  |
 # ----------------------------------------------------------------------------------------------|
 
+from datetime import datetime
 from os import makedirs, path, environ
 
 from keras.applications.densenet import DenseNet201, preprocess_input
 from keras.preprocessing import image as kimage
-from keras.callbacks import EarlyStopping
+from keras.callbacks import EarlyStopping, TensorBoard
 from keras.optimizers import SGD
 from keras.models import Model, model_from_json
 from keras.layers import Dense, GlobalAveragePooling2D, Dropout
@@ -114,12 +115,14 @@ class TrainingInstance():
             epochs=15,
             training_batch_size=50,
             validation_batch_size=50,
-            validation_split_ratio=0.2,
+            validation_split_ratio=0.1,
             lr=0.01, decay=0.0009):
+
+        startedTime = datetime.now()
+        print("startedTime: {}".format(startedTime))
 
         # section off images for training and validation
         # training params:
-        validation_split_ratio   = .1
         total_training_samples   = int(len(self.dataset_dataframe) * (1.0-validation_split_ratio))
         total_validation_samples = int(len(self.dataset_dataframe) * validation_split_ratio)
 
@@ -133,8 +136,9 @@ class TrainingInstance():
             #rescale=1.0/255.0,
             #vertical_flip=True,
             horizontal_flip=True,
-            zoom_range=0.2,
-            shear_range=0.2,
+            zoom_range=0.3,
+            shear_range=0.3,
+            rotation_range=5
         )
         data_flow = img_generator.flow_from_dataframe(
             shuffle=True,
@@ -164,6 +168,7 @@ class TrainingInstance():
 
         # training callbacks
         estopper = EarlyStopping(monitor='val_categorical_accuracy', patience=2)
+        tbCallBack = TensorBoard(log_dir='/app/instances/tb', histogram_freq=0, write_graph=True, write_images=True)
 
         logging.info("\nTRAINING---------------------\nepochs: {},\nsteps_per_epoch: {},\nvalidation_steps: {}".format( epochs, steps_per_epoch, validation_steps))
         history = model.fit_generator(
@@ -172,8 +177,11 @@ class TrainingInstance():
             epochs=epochs,
             validation_data=TrainingInstance.__flow_with_normalisation__(validation_data_flow),
             validation_steps=validation_steps,
-            callbacks=[estopper]
+            callbacks=[estopper, tbCallBack]
         )
+
+        finishedTime = datetime.now()
+        logging.info("training time was: {} seconds".format((finishedTime - startedTime).total_seconds()) )
 
         self.__model__ = model
         return (model, history)
