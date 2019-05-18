@@ -85,8 +85,7 @@ class DatasetCreator ():
             hostname = urlparse(link).hostname or None
             if hostname is None and path.isfile(link):
                 images_pulled.append( IMAGE_ASSETS_PATH + link ) # treat image as one in a local volume
-                print(images_pulled[-1])
-
+                
             else:
                 try:
                     # make a GET request and dont follow redirects - timeout after 3 secs
